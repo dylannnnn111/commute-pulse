@@ -1,0 +1,5 @@
+raw/
+opal_all.txt
+*.pdf
+.DS_Store
+__pycache__/
