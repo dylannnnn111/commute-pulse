@@ -94,6 +94,56 @@ def hourly_profile(df: pd.DataFrame, flags: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(rows).round(0)
 
 
+def suburban_morning(df: pd.DataFrame, flags: pd.DataFrame) -> pd.DataFrame:
+    """Friday vs Tue-Thu for 7-9am tap-ons outside the named centres ('Other' region):
+    people leaving home in the suburbs. Same excluded days as the CBD series."""
+    good = flags.loc[(flags["region"] == "Sydney CBD") & (flags["flag"] == ""), "date"]
+    x = df[(df["region"] == "Other") & df["hour"].isin([7, 8]) & df["date"].isin(good)]
+    last = df["date"].max()
+    windows = {"pre_covid": BASELINE, "last_12m": (last - pd.DateOffset(months=12), last)}
+    rows = []
+    for modes_name, modes in [("bus", ["Bus"]), ("all_modes", ["Bus", "Train", "Ferry", "Light rail"])]:
+        g = x[x["mode"].isin(modes)].groupby("date")["tap_ons"].sum()
+        g = pd.DataFrame({"tap_ons": g.values, "dow": g.index.dayofweek, "date": g.index})
+        for wname, (a, b) in windows.items():
+            w = g[g["date"].between(a, b)].groupby("dow")["tap_ons"].mean()
+            rows.append({"modes": modes_name, "window": wname,
+                         "fri_vs_midweek": round(float(w[4] / w[[1, 2, 3]].mean()), 3)})
+    return pd.DataFrame(rows)
+
+
+def web_data(d: pd.DataFrame, profile: pd.DataFrame, morning: pd.DataFrame) -> dict:
+    """Compact JSON for the story page (web/)."""
+    import json
+    m = weekday_gaps(d, "M")
+    cbd = m[(m["region"] == "Sydney CBD") & m["Fri"].notna() & m["Mon"].notna()]
+    base = baseline(d).set_index("region")
+    last = d["date"].max()
+    recent = d[d["date"] > last - pd.DateOffset(months=12)]
+    rg = weekday_gaps(recent.assign(date=recent["date"].min()), "Y").set_index("region")
+    centres = [{"region": r,
+                "pre": round(float(base.loc[r, "fri_vs_midweek"]), 3),
+                "now": round(float(rg.loc[r, "fri_vs_midweek"]), 3)} for r in CENTRES]
+    prof = profile.copy()
+    mid = (prof[prof["dow"].isin(["Tue", "Wed", "Thu"])]
+           .groupby(["window", "hour"], as_index=False)["tap_ons"].mean().assign(day="Tue-Thu average"))
+    fri = prof[prof["dow"] == "Fri"].assign(day="Friday")[["window", "hour", "tap_ons", "day"]]
+    hourly = pd.concat([mid, fri]).round(0)
+    cbd_mid_now = float(rg.loc["Sydney CBD", ["Tue", "Wed", "Thu"]].mean())
+    cbd_mid_pre = float(base.loc["Sydney CBD", ["Tue", "Wed", "Thu"]].mean())
+    return {
+        "updated": f"{last:%Y-%m-%d}",
+        "cbd_monthly": [{"month": f"{p:%Y-%m}", "fri": r.fri_vs_midweek, "mon": r.mon_vs_midweek}
+                        for p, r in zip(cbd["period"], cbd.itertuples())],
+        "cbd_baseline": {"fri": round(float(base.loc["Sydney CBD", "fri_vs_midweek"]), 3),
+                         "mon": round(float(base.loc["Sydney CBD", "mon_vs_midweek"]), 3)},
+        "cbd_midweek_recovery": round(cbd_mid_now / cbd_mid_pre, 3),
+        "centres": centres,
+        "hourly": hourly.to_dict(orient="records"),
+        "suburban_morning": {f"{r.modes}_{r.window}": r.fri_vs_midweek for r in morning.itertuples()},
+    }
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     df = load()
@@ -102,7 +152,15 @@ def main():
     weekday_gaps(d, "M").to_csv(OUT / "weekday_gap_monthly.csv", index=False)
     weekday_gaps(d, "Q").to_csv(OUT / "weekday_gap_quarterly.csv", index=False)
     baseline(d).to_csv(OUT / "baseline_pre_covid.csv", index=False)
-    hourly_profile(df, d).to_csv(OUT / "cbd_hourly_profile.csv", index=False)
+    profile = hourly_profile(df, d)
+    profile.to_csv(OUT / "cbd_hourly_profile.csv", index=False)
+    morning = suburban_morning(df, d)
+    morning.to_csv(OUT / "suburban_morning.csv", index=False)
+    import json
+    (ROOT / "web").mkdir(exist_ok=True)
+    payload = json.dumps(web_data(d, profile, morning), separators=(",", ":"))
+    (ROOT / "web" / "data.json").write_text(payload)
+    (ROOT / "web" / "data.js").write_text("window.COMMUTE_PULSE = " + payload + ";\n")  # lets index.html open straight from disk
     print(f"{df['date'].min():%Y-%m-%d} to {df['date'].max():%Y-%m-%d}, {len(df):,} rows")
     print(f"flagged days: {(d['flag'] != '').sum()} region-days")
     print(baseline(d).to_string(index=False))

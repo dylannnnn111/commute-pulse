@@ -1,0 +1,5 @@
+modes,window,fri_vs_midweek
+bus,pre_covid,0.941
+bus,last_12m,0.799
+all_modes,pre_covid,0.933
+all_modes,last_12m,0.758

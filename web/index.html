@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commute Pulse</title>
+<meta name="description" content="Is Sydney back in the office? Opal tap data by commercial centre and day of week, 2020 to now.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~680px) with charts allowed slightly wider; navy + coral, theme follows OS. */
+:root{
+  --bg:#F7F8FB; --surface:#FFFFFF; --ink:#0F1B33; --ink-2:#42506B; --muted:#6A7690; --line:#E1E6EF; --grid:#EBEEF4;
+  --s-mid:#3D5FA8;   /* Tue-Thu / Monday / pre-COVID - validated pair */
+  --s-fri:#D9483B;   /* Friday / now */
+  --shade:rgba(15,27,51,.05);
+  --f-display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0A1325; --surface:#0E1A31; --ink:#E7ECF5; --ink-2:#B7C1D6; --muted:#8E9BB6; --line:#1F2D4A; --grid:#18243D;
+  --s-mid:#6F8CD6; --s-fri:#E85F51; --shade:rgba(231,236,245,.05); color-scheme:dark;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--f-body);padding-inline:16px}
+main{max-width:760px;margin-inline:auto;padding-block:48px 80px;display:flex;flex-direction:column;gap:56px}
+.kicker{font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--s-fri)}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(38px,7vw,64px);line-height:1;letter-spacing:-.02em;margin:10px 0 18px;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:600;font-size:clamp(22px,3.4vw,28px);line-height:1.15;margin:0 0 8px;text-wrap:balance}
+p{margin:0 0 14px;max-width:64ch;color:var(--ink-2)}
+p strong{color:var(--ink)}
+.lede{font-size:19px;color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:28px;padding-top:24px;border-top:1px solid var(--line)}
+@media (max-width:560px){.stats{grid-template-columns:1fr}}
+.stat .v{font-size:40px;font-weight:600;line-height:1;letter-spacing:-.01em}
+.stat .l{font-size:14px;color:var(--muted);margin-top:6px;max-width:26ch}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 20px 14px}
+figcaption{font-size:13px;color:var(--muted);margin-top:8px}
+.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--ink-2);margin:4px 0 10px}
+.key{display:inline-flex;align-items:center;gap:7px}
+.key i{display:inline-block;width:16px;height:2px;border-radius:1px;background:var(--c)}
+.key b{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c)}
+.chart{width:100%;overflow-x:auto}
+.chart svg{display:block;max-width:100%;height:auto;overflow:visible}
+details{margin-top:10px;font-size:13px;color:var(--muted)}
+summary{cursor:pointer}
+table{border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums;font-size:13px}
+th,td{text-align:left;padding:4px 14px 4px 0;border-bottom:1px solid var(--line)}
+.method{font-size:14px}
+.method p{font-size:14px}
+footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:20px}
+a{color:var(--ink)}
+/* Plot's built-in tip: theme it */
+[aria-label="tip"] path{fill:var(--surface);stroke:var(--line)}
+[aria-label="tip"] text{fill:var(--ink)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="kicker">Commute Pulse · Opal tap data</div>
+    <h1>Sydney's back in the office, except on Fridays</h1>
+    <p class="lede">I catch the B-Line into uni around 8am, right in the peak. On a Tuesday or Wednesday it's packed. On a Friday it's noticeably quieter, which made me curious how many people are actually going into work. So I pulled every day of Opal tap data since January 2020.</p>
+    <p class="lede" id="buscheck">First I checked whether it was just my bus. It wasn't. Across Sydney, outside the big centres, bus tap-ons between 7 and 9am on a Friday used to be about 6% below midweek. Now they're about 20% below.</p>
+    <p class="lede">In the CBD, midweek travel is most of the way back. Fridays came back too, then stalled, and they've been stuck at the same level for four years.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section>
+    <h2>Fridays fell behind in 2022 and haven't caught up</h2>
+    <p>For each month I took evening tap-ons in the CBD on Fridays and Mondays and compared them with that month's Tuesday-to-Thursday average. Before COVID a Friday ran about 10% quieter than midweek. Since mid-2022 it's been about 22% quieter, and the return-to-office push didn't shift it.</p>
+    <figure>
+      <div class="legend"><span class="key" style="--c:var(--s-fri)"><i></i>Friday</span><span class="key" style="--c:var(--s-mid)"><i></i>Monday</span><span class="key" style="--c:var(--muted)"><i style="height:1px"></i>Pre-COVID Friday level</span></div>
+      <div class="chart" id="c1"></div>
+      <figcaption>Sydney CBD, tap-ons 3pm-7pm, all modes. 3-month rolling average. Shaded: 2020 and 2021 lockdowns. Source: TfNSW Opal Tap Data.</figcaption>
+      <details><summary>Show as table</summary><div id="t1"></div></details>
+    </figure>
+  </section>
+
+  <section>
+    <h2>It's the office districts</h2>
+    <p>Then I split it by centre, and the gap lines up with how much of each area is office work. North Sydney, the CBD and Macquarie Park lost the most of their Friday. Chatswood and Strathfield, which are more about shopping and where people live, have barely any gap at all.</p>
+    <figure>
+      <div class="legend"><span class="key" style="--c:var(--s-mid)"><b></b>Pre-COVID (Jan-Feb 2020)</span><span class="key" style="--c:var(--s-fri)"><b></b>Last 12 months</span></div>
+      <div class="chart" id="c2"></div>
+      <figcaption>Friday evening tap-ons as a share of the Tuesday-Thursday average, by commercial centre.</figcaption>
+      <details><summary>Show as table</summary><div id="t2"></div></details>
+    </figure>
+  </section>
+
+  <section>
+    <h2>What's missing is the Friday 5pm rush</h2>
+    <p>Hour by hour, Friday's 5pm peak out of the CBD was always a bit lighter, about 15% below midweek. Now it's about 32% below. If you're not in the city on a Friday, you're not tapping on to go home. Friday lunchtime is as busy as any other day though.</p>
+    <figure>
+      <div class="legend"><span class="key" style="--c:var(--s-mid)"><i></i>Tue-Thu average</span><span class="key" style="--c:var(--s-fri)"><i></i>Friday</span></div>
+      <div class="chart" id="c3"></div>
+      <figcaption>Average tap-ons per hour in the CBD, weekdays. Left: 6 Jan - 6 Mar 2020. Right: last 12 months.</figcaption>
+    </figure>
+  </section>
+
+  <section class="method">
+    <h2>How I measured it</h2>
+    <p>The data is TfNSW's Opal Tap Data: tap-ons and tap-offs by hour, mode and commercial centre for every day since January 2020, rounded to the nearest 100. I used evening tap-ons (3pm to 7pm), which is people leaving a centre. I left tap-offs out because they have breaks I couldn't explain. CBD morning tap-offs drop about 85% between October 2023 and June 2024 while tap-ons stay flat.</p>
+    <p>Comparing Friday against Tuesday to Thursday of the same period cancels out most changes in how the data is collected. I dropped public holidays, lockdown starts and outages automatically (any weekday under 70% of its usual level), plus the periods TfNSW flags as unreliable. One thing I'm still not sure about is whether the new Metro stations count towards the CBD. If they don't, the midweek recovery number is probably on the low side.</p>
+  </section>
+
+  <footer>Data: Transport for NSW Open Data, CC BY 4.0. Last data point <span id="upd"></span>. Code and pipeline on GitHub: <a href="https://github.com/dylannnnn111/commute-pulse">github.com/dylannnnn111/commute-pulse</a>. Dylan Lewis.</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16/dist/plot.umd.min.js"></script>
+<script src="data.js"></script>
+<script>
+const D = window.COMMUTE_PULSE;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const pct = v => Math.round(v * 100) + "%";
+const LOCKDOWNS = [["2020-03-23","2020-06-01"],["2021-06-26","2021-10-11"]].map(([a,b]) => ({a:new Date(a), b:new Date(b)}));
+
+document.getElementById("upd").textContent = new Date(D.updated).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
+
+function stats(){
+  const cbd = D.centres.find(c => c.region === "Sydney CBD");
+  const ns = D.centres.find(c => c.region === "North Sydney");
+  const el = document.getElementById("stats");
+  el.innerHTML = "";
+  [[pct(D.cbd_midweek_recovery), "of the CBD's pre-COVID midweek evening travel is back"],
+   [pct(cbd.now), "is how busy a CBD Friday is compared with midweek. Before COVID it was " + pct(cbd.pre)],
+   [pct(ns.now), "North Sydney on a Friday, the biggest drop of any centre I looked at"]]
+  .forEach(([v,l]) => { const d = document.createElement("div"); d.className="stat";
+    d.innerHTML = `<div class="v"></div><div class="l"></div>`; d.querySelector(".v").textContent=v; d.querySelector(".l").textContent=l; el.append(d); });
+}
+
+function rolling(rows, key, k=3){
+  return rows.map((r,i) => { const w = rows.slice(Math.max(0,i-k+1), i+1).map(x=>x[key]).filter(Number.isFinite);
+    return w.length === k ? w.reduce((a,b)=>a+b,0)/k : NaN; });
+}
+
+function table(id, head, rows){
+  const t = document.createElement("table");
+  t.innerHTML = "<thead><tr>" + head.map(h=>`<th>${h}</th>`).join("") + "</tr></thead>";
+  const tb = document.createElement("tbody");
+  rows.forEach(r => { const tr = document.createElement("tr"); r.forEach(c => { const td=document.createElement("td"); td.textContent=c; tr.append(td); }); tb.append(tr); });
+  t.append(tb); const host = document.getElementById(id); host.innerHTML=""; host.append(t);
+}
+
+function render(){
+  const W = Math.min(document.querySelector("main").clientWidth - 42, 720);
+  const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), mid = css("--s-mid"), fri = css("--s-fri"), shade = css("--shade");
+  const base = {style:{fontFamily:"IBM Plex Sans, system-ui, sans-serif", fontSize:"12px", color:muted, background:"transparent"}};
+
+  // 1. Friday / Monday gap over time
+  const m = D.cbd_monthly.map(r => ({...r, date:new Date(r.month + "-15")}));
+  const friR = rolling(m,"fri"), monR = rolling(m,"mon");
+  const series = m.flatMap((r,i) => [
+    {date:r.date, v:friR[i], day:"Friday"}, {date:r.date, v:monR[i], day:"Monday"}]).filter(d => Number.isFinite(d.v));
+  const lastFri = series.filter(d=>d.day==="Friday").at(-1), lastMon = series.filter(d=>d.day==="Monday").at(-1);
+  const c1 = Plot.plot({...base, width:W, height:Math.round(W*0.5), marginLeft:44, marginRight:56,
+    x:{type:"time", label:null, grid:false},
+    y:{domain:[0.65,1.15], tickFormat:d=>pct(d), label:"vs Tue-Thu", grid:true, ticks:5}, clip:true,
+    marks:[
+      Plot.rectX(LOCKDOWNS,{x1:"a", x2:"b", y1:0.65, y2:1.15, fill:shade}),
+      Plot.text([{x:LOCKDOWNS[0].a, t:"Lockdowns"}],{x:"x", y:1.14, text:"t", textAnchor:"start", dx:4, fill:muted, fontSize:11}),
+      Plot.ruleY([D.cbd_baseline.fri],{stroke:muted, strokeWidth:1}),
+      Plot.line(series,{x:"date", y:"v", stroke:"day", strokeWidth:2, curve:"monotone-x"}),
+      Plot.dot([lastFri,lastMon],{x:"date", y:"v", fill:"day", r:4, stroke:css("--surface"), strokeWidth:2}),
+      Plot.text([lastFri,lastMon],{x:"date", y:"v", text:d=>pct(d.v), dx:10, textAnchor:"start", fill:ink, fontWeight:600}),
+      Plot.tip(series, Plot.pointerX({x:"date", y:"v", channels:{Day:"day"}, format:{x:d=>d.toLocaleDateString("en-AU",{month:"short",year:"numeric"}), y:d=>pct(d), stroke:false}}))
+    ],
+    color:{domain:["Friday","Monday"], range:[fri, mid]}
+  });
+  c1.querySelectorAll('[aria-label="y-axis label"] text').forEach(t=>t.setAttribute("fill",muted));
+  document.getElementById("c1").replaceChildren(c1);
+  table("t1", ["Month","Friday","Monday"], m.map(r => [r.month, pct(r.fri), pct(r.mon)]));
+
+  // 2. Centres: dumbbell, sorted by current gap
+  const cs = [...D.centres].sort((a,b) => a.now - b.now);
+  const pts = cs.flatMap(c => [{region:c.region, v:c.pre, when:"Pre-COVID"},{region:c.region, v:c.now, when:"Last 12 months"}]);
+  const c2 = Plot.plot({...base, width:W, height:46*cs.length + 40, marginLeft:112, marginRight:44,
+    y:{domain:cs.map(c=>c.region), label:null, tickSize:0},
+    x:{domain:[0.65,1.02], tickFormat:d=>pct(d), grid:true, label:null, ticks:[0.7,0.8,0.9,1]},
+    marks:[
+      Plot.link(cs,{y:"region", x1:"now", x2:"pre", stroke:muted, strokeOpacity:.5, strokeWidth:2}),
+      Plot.dot(pts,{y:"region", x:"v", fill:"when", r:6, stroke:css("--surface"), strokeWidth:2, tip:{format:{fill:true, x:d=>pct(d), y:true}}}),
+      Plot.text(cs,{y:"region", x:"now", text:d=>pct(d.now), dx:-12, textAnchor:"end", fill:ink, fontWeight:600})
+    ],
+    color:{domain:["Pre-COVID","Last 12 months"], range:[mid, fri]}
+  });
+  document.getElementById("c2").replaceChildren(c2);
+  table("t2", ["Centre","Pre-COVID","Last 12 months"], cs.map(c => [c.region, pct(c.pre), pct(c.now)]));
+
+  // 3. Hourly profile, two panels
+  const lab = {pre_covid:"Pre-COVID", last_12m:"Last 12 months"};
+  const h = D.hourly.filter(r => r.hour >= 5 && r.hour <= 22).map(r => ({...r, panel:lab[r.window]}));
+  const c3 = Plot.plot({...base, width:W, height:Math.round(W*0.42), marginLeft:44,
+    fx:{domain:["Pre-COVID","Last 12 months"], label:null, padding:0.08},
+    x:{domain:[5,22], ticks:[6,9,12,15,18,21], tickFormat:d=> d===12?"12pm": d<12? d+"am" : (d-12)+"pm", label:null},
+    y:{grid:true, label:"Tap-ons per hour", tickFormat:d=> d>=1000 ? (d/1000)+"k" : d, ticks:4},
+    marks:[
+      Plot.line(h,{fx:"panel", x:"hour", y:"tap_ons", stroke:"day", strokeWidth:2, curve:"monotone-x"}),
+      Plot.tip(h, Plot.pointer({fx:"panel", x:"hour", y:"tap_ons", stroke:"day", format:{fx:false, x:d=> d<12? d+"am" : d===12?"12pm":(d-12)+"pm", y:d=>d3.format(",")(d)}}))
+    ],
+    color:{domain:["Tue-Thu average","Friday"], range:[mid, fri]}
+  });
+  document.getElementById("c3").replaceChildren(c3);
+}
+
+function busCheck(){
+  const m = D.suburban_morning, below = v => Math.round((1 - v) * 100) + "%";
+  document.getElementById("buscheck").textContent =
+    `First I checked whether it was just my bus. It wasn't. Across Sydney, outside the big centres, bus tap-ons between 7 and 9am on a Friday used to be about ${below(m.bus_pre_covid)} below midweek. Now they're about ${below(m.bus_last_12m)} below.`;
+}
+busCheck(); stats(); render();
+let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(render, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+</script>
+</body>
+</html>

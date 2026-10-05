@@ -20,10 +20,14 @@ python pipeline.py
 ## Method
 - **Measure:** tap-ons 3pm-7pm (people leaving work) per commercial centre. Tap-offs are excluded because they have unexplained structural breaks (CBD morning tap-offs fall ~85% from Oct 2023 to Jun 2024 while tap-ons stay flat).
 - **Friday gap:** Friday volume / average of Tue-Thu, same period. Ratios within a period cancel out most data-level changes.
+- **Suburban check:** 7-9am tap-ons in the 'Other' region (everywhere outside the named centres), Friday vs Tue-Thu, same excluded days.
 - **Baseline:** 6 Jan - 6 Mar 2020 (pre-COVID, after the New Year lull).
 - **Excluded days:** weekdays below 70% of the rolling 9-week median for that weekday (public holidays, lockdown starts, outages) and TfNSW's documented discrepancy windows.
 - **Suppressed counts** (`<50`, `<100`) set to half the threshold; under 1% of evening volume outside Newcastle.
 - **Caveat:** the CBD region is defined by named stations and postcode 2000. It's unclear whether Sydney Metro taps (Barangaroo, Gadigal, Martin Place metro) are included, so CBD levels vs 2020 may be understated.
+
+## Story page (`web/`)
+`pipeline.py` also writes `web/data.json` and `web/data.js`. Open `web/index.html` in a browser to see the charts (Observable Plot, loaded from jsDelivr).
 
 ## Outputs (`out/`)
 | File | What |
@@ -32,3 +36,4 @@ python pipeline.py
 | `weekday_gap_monthly.csv` / `_quarterly.csv` | Mon-Fri averages and Mon/Fri vs midweek ratios |
 | `baseline_pre_covid.csv` | Same ratios for the pre-COVID baseline |
 | `cbd_hourly_profile.csv` | CBD tap-ons by hour and weekday, pre-COVID vs last 12 months |
+| `suburban_morning.csv` | Friday vs Tue-Thu for 7-9am tap-ons outside the named centres (people leaving home), bus and all modes |
